@@ -149,7 +149,13 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
   </section>
 
   <section id="tab-maintenance">
-    <div class="wrap"><div class="sect" style="padding-left:0">Maintenance Log</div></div>
+    <div class="wrap">
+      <a class="row" style="margin:0;text-decoration:none;color:inherit" href="https://github.com/maintenanz/zaw/blob/main/ms271-manual.pdf" target="_blank" rel="noopener">
+        <div><div class="main">📄 MS 271 Manual</div><div class="meta">PDF on GitHub</div></div>
+        <span style="color:#9a8b74">›</span>
+      </a>
+      <div class="sect" style="padding-left:0">Maintenance Log</div>
+    </div>
     <div id="maintList"></div>
   </section>
 
@@ -266,7 +272,7 @@ function render(){
     r.onclick=()=>openRawSheet(i);
     r.appendChild(b); rl.appendChild(r);
   });
-  document.getElementById('rawTotal').textContent='Total: '+(Math.round(rtot*100)/100)+' hrs across '+S.rawDays.length+' days';
+  document.getElementById('rawTotal').innerHTML='Total: '+(Math.round(rtot*100)/100)+'* hrs across '+S.rawDays.length+' days<div class="subnote" style="color:#9a8b74;font-size:11px;margin-top:2px">* unverified</div>';
 
   document.getElementById('finTotal').textContent = S.receipts.length ? ('Total: '+money(tot)) : '';
 }
