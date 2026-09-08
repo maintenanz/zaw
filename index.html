@@ -138,6 +138,13 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
 <b>Skip for now:</b> the spark plug is not due until 100 hrs. A tired plug shows up as hard starting first, so you will get warning.
 <b>Fuel filter:</b> ethanol-free 91 + HP Ultra stops varnish, but the filter's real job is catching physical junk - sawdust and dirt that fall in during fills. Good gas doesn't stop that. Not required monthly: replace it once a year, and if the saw ever bogs or starves under load, the filter is the first suspect.</div>
       </div>
+
+      <button class="caret-btn" id="rawCaret"><span>Raw</span><span class="ch">›</span></button>
+      <div class="caret-body" id="rawBody">
+        <div class="total" id="rawTotal" style="padding:4px 0 8px"></div>
+        <div id="rawList"></div>
+        <button class="btn gray" id="rawAdd" style="margin-top:2px">Add day</button>
+      </div>
     </div>
   </section>
 
@@ -168,6 +175,18 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
   </div>
 </div>
 
+
+<div class="overlay" id="rawOverlay">
+  <div class="sheet">
+    <h2 id="rawSheetTitle">Edit day</h2>
+    <div class="field" style="margin:0 0 10px"><input id="rawDate" placeholder="Date (e.g. 9/7)"></div>
+    <div class="field" style="margin:0 0 10px"><input id="rawText" placeholder="Window / notes"></div>
+    <div class="field" style="margin:0 0 4px"><input id="rawHours" placeholder="Hours" inputmode="decimal"></div>
+    <button class="btn" id="rawSave">Save</button>
+    <button class="btn gray" id="rawCancel">Cancel</button>
+  </div>
+</div>
+
 <nav id="tabbar">
   <button data-tab="home" class="active"><span class="ic">🪵</span>Home</button>
   <button data-tab="maintenance"><span class="ic">🛠️</span>Maintenance</button>
@@ -176,8 +195,29 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
 
 <script>
 const KEY='chainsaw-tracking-v1';
+
+const RAW_SEED=[
+ {date:'5/10',text:'chainsaw 3p-9',hours:6},
+ {date:'5/11',text:'chainsaw 9a-3:30p',hours:6.5},
+ {date:'5/23',text:'8:30a-10:30a chainsaw/yard (2.0) + 3p-5:30 ladder chainsaw (2.5)',hours:4.5},
+ {date:'5/28',text:'9a-2p chainsaw/yard',hours:5},
+ {date:'6/2',text:'11:30a-3:30p chainsaw',hours:4},
+ {date:'6/18',text:'1:30p-5:30 piles separate + zaw',hours:4},
+ {date:'6/23',text:'8:30p-9:30p zaw',hours:1},
+ {date:'7/4',text:'3:30p-5:30 zaw',hours:2},
+ {date:'7/6',text:'7:30-9:30 zaw',hours:2},
+ {date:'7/7',text:'2:30p-5:30 zaw',hours:3},
+ {date:'7/21',text:'12-2:30 zaw',hours:2.5},
+ {date:'7/22',text:'5 hrs zaw',hours:5},
+ {date:'8/18',text:'7:30p-9 zaw',hours:1.5},
+ {date:'8/21',text:'zaw 4:45-7:15',hours:2.5},
+ {date:'8/23',text:'zaw 2:45p-3:45 + 8-8:45',hours:1.75},
+ {date:'8/31',text:'7-8pm zaw',hours:1},
+ {date:'9/7',text:'picnic zaw 5:30-7:30',hours:2}
+];
 let S={ hours:0, hoursEdited:'', chains:[], receipts:[], beforeAfter:'', accessories:'' };
 try { const x=JSON.parse(localStorage.getItem(KEY)); if(x) S=Object.assign(S,x); } catch(e){}
+if(!Array.isArray(S.rawDays)) S.rawDays=JSON.parse(JSON.stringify(RAW_SEED));
 
 function save(){
   localStorage.setItem(KEY, JSON.stringify(S));
@@ -213,6 +253,21 @@ function render(){
     b.onclick=()=>{ S.receipts.splice(i,1); save(); render(); };
     d.appendChild(b); fl.appendChild(d);
   });
+
+  const rl=document.getElementById('rawList');
+  rl.innerHTML='';
+  let rtot=0;
+  S.rawDays.forEach((d,i)=>{
+    rtot+=Number(d.hours)||0;
+    const r=document.createElement('div'); r.className='row'; r.style.margin='0 0 8px';
+    r.innerHTML='<div><div class="main">'+d.date+' · '+(Number(d.hours)||0)+' hrs</div><div class="meta">'+d.text+'</div></div>';
+    const b=document.createElement('button'); b.className='del'; b.textContent='✕';
+    b.onclick=(e)=>{ e.stopPropagation(); S.rawDays.splice(i,1); save(); render(); };
+    r.onclick=()=>openRawSheet(i);
+    r.appendChild(b); rl.appendChild(r);
+  });
+  document.getElementById('rawTotal').textContent='Total: '+(Math.round(rtot*100)/100)+' hrs across '+S.rawDays.length+' days';
+
   document.getElementById('finTotal').textContent = S.receipts.length ? ('Total: '+money(tot)) : '';
 }
 
@@ -249,6 +304,32 @@ fc.onclick=()=>{ fc.classList.toggle('open'); fb.classList.toggle('open'); };
 document.querySelectorAll('.faq-q').forEach(q=>{
   q.onclick=()=>{ q.classList.toggle('open'); q.nextElementSibling.classList.toggle('open'); };
 });
+
+
+const rc=document.getElementById('rawCaret'), rb=document.getElementById('rawBody');
+rc.onclick=()=>{ rc.classList.toggle('open'); rb.classList.toggle('open'); };
+let rawIdx=-1;
+const rov=document.getElementById('rawOverlay');
+function openRawSheet(i){
+  rawIdx=i;
+  document.getElementById('rawSheetTitle').textContent = i<0 ? 'Add day' : 'Edit day';
+  document.getElementById('rawDate').value = i<0 ? '' : S.rawDays[i].date;
+  document.getElementById('rawText').value = i<0 ? '' : S.rawDays[i].text;
+  document.getElementById('rawHours').value = i<0 ? '' : S.rawDays[i].hours;
+  rov.classList.add('open');
+}
+document.getElementById('rawAdd').onclick=()=>openRawSheet(-1);
+document.getElementById('rawCancel').onclick=()=>rov.classList.remove('open');
+rov.onclick=e=>{ if(e.target===rov) rov.classList.remove('open'); };
+document.getElementById('rawSave').onclick=()=>{
+  const date=document.getElementById('rawDate').value.trim();
+  const text=document.getElementById('rawText').value.trim();
+  const hours=parseFloat(document.getElementById('rawHours').value)||0;
+  if(!date&&!text) { rov.classList.remove('open'); return; }
+  const row={ date:date||'—', text, hours };
+  if(rawIdx<0) S.rawDays.push(row); else S.rawDays[rawIdx]=row;
+  save(); render(); rov.classList.remove('open');
+};
 
 // more caret
 const mc=document.getElementById('moreCaret'), mb=document.getElementById('moreBody');
