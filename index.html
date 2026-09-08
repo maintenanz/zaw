@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14110c">
+<meta name="description" content="Track chainsaw hours, chains, and maintenance costs.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Chainsaw Tracking</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#14110c; color:#f0e8db; padding-bottom:90px; }
+  header { padding:18px 16px 6px; }
+  header h1 { margin:0; font-size:24px; }
+  header .sub { color:#9a8b74; font-size:13px; margin-top:2px; }
+  #saveTag { color:#6e6250; font-size:11px; margin-top:3px; min-height:14px; }
+  main section { display:none; }
+  main section.active { display:block; }
+  .wrap { padding:12px 16px; }
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px 16px; }
+  .card { background:#241e15; border:1px solid #352c1e; border-radius:16px; padding:14px;
+          box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:pointer; user-select:none; }
+  .card .big { font-size:32px; font-weight:700; line-height:1.1; }
+  .card .label { color:#9a8b74; font-size:13px; margin-top:2px; }
+  .card .note { color:#e07a2f; font-size:12px; margin-top:4px; }
+  .card .subnote { color:#9a8b74; font-size:11px; margin-top:2px; }
+  .btn { display:block; width:100%; border:0; border-radius:12px; padding:13px; font-size:16px;
+         font-weight:600; background:#e07a2f; color:#fff; margin-top:10px; cursor:pointer; }
+  .btn.gray { background:#33291b; color:#f0e8db; }
+  .row { background:#241e15; border:1px solid #352c1e; border-radius:16px; padding:12px 14px;
+         margin:0 16px 10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .row .main { font-size:15px; font-weight:600; }
+  .row .meta { color:#9a8b74; font-size:12px; margin-top:2px; }
+  .row .del { border:0; background:none; color:#6e6250; font-size:18px; cursor:pointer; padding:4px 6px; }
+  .empty { color:#6e6250; font-size:13px; text-align:center; padding:18px 16px; }
+  .field { margin:0 16px 10px; }
+  .field input, .field textarea { width:100%; border:1px solid #352c1e; border-radius:12px;
+         background:#241e15; color:#f0e8db; padding:12px 14px; font-size:16px; outline:none; }
+  .field input:focus, .field textarea:focus { border-color:#e07a2f; }
+  .field textarea { min-height:90px; resize:vertical; font-family:inherit; }
+  .sect { padding:14px 16px 2px; font-size:12px; letter-spacing:1px; color:#b07a2e; font-weight:700; }
+  .total { padding:4px 16px 10px; color:#9a8b74; font-size:13px; }
+  .caret-btn { display:flex; align-items:center; justify-content:space-between; width:100%;
+         background:#241e15; border:1px solid #352c1e; border-radius:16px; padding:14px;
+         margin:0 0 10px; color:#f0e8db; font-size:15px; font-weight:600; cursor:pointer; }
+  .caret-btn .ch { color:#9a8b74; transition:transform .15s; }
+  .caret-btn.open .ch { transform:rotate(90deg); }
+  .caret-body { display:none; }
+  .caret-body.open { display:block; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+         align-items:flex-end; z-index:20; }
+  .overlay.open { display:flex; }
+  .sheet { background:#1d1811; border-radius:20px 20px 0 0; width:100%;
+         padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .sheet h2 { margin:0 0 10px; font-size:18px; }
+  .sheet input { width:100%; border:1px solid #352c1e; border-radius:12px; background:#241e15;
+         color:#f0e8db; padding:14px; font-size:28px; font-weight:700; text-align:center; outline:none; }
+  .sheet input:focus { border-color:#e07a2f; }
+  #tabbar { position:fixed; bottom:0; left:0; right:0; display:flex; background:#1d1811;
+            border-top:1px solid #352c1e; padding-bottom:env(safe-area-inset-bottom); }
+  #tabbar button { flex:1; border:0; background:none; padding:8px 0 10px; font-size:11px;
+                   color:#9a8b74; cursor:pointer; }
+  #tabbar button .ic { display:block; font-size:22px; margin-bottom:2px; }
+  #tabbar button.active { color:#e07a2f; font-weight:700; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Chainsaw Tracking</h1>
+  <div id="saveTag"></div>
+</header>
+
+<main>
+  <section id="tab-home" class="active">
+    <div class="cards">
+      <div class="card" id="hoursCard">
+        <div class="big" id="hoursBig">0</div>
+        <div class="label">Hours</div>
+        <div class="subnote" id="hoursEdited"></div>
+      </div>
+      <div class="card" id="chainCard">
+        <div class="big" id="chainBig">0</div>
+        <div class="label">Chain</div>
+        <div class="note">Add new chain</div>
+      </div>
+    </div>
+    <div class="wrap">
+      <button class="caret-btn" id="moreCaret"><span>More</span><span class="ch">›</span></button>
+      <div class="caret-body" id="moreBody">
+        <div class="sect">Before/After</div>
+        <div class="field"><textarea id="beforeAfter" placeholder="Notes..."></textarea></div>
+        <div class="sect">Accessories</div>
+        <div class="field"><textarea id="accessories" placeholder="Notes..."></textarea></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-maintenance">
+    <div class="wrap"><div class="sect" style="padding-left:0">Maintenance Log</div></div>
+    <div id="maintList"></div>
+  </section>
+
+  <section id="tab-finance">
+    <div class="wrap">
+      <div class="sect" style="padding-left:0">Add Receipt</div>
+      <div class="field"><input id="rItem" placeholder="Item"></div>
+      <div class="field"><input id="rCost" placeholder="Cost" inputmode="decimal"></div>
+      <div class="field"><input id="rLoc" placeholder="Location"></div>
+      <button class="btn" id="rAdd">Add Receipt</button>
+      <div class="total" id="finTotal"></div>
+    </div>
+    <div id="finList"></div>
+  </section>
+</main>
+
+<div class="overlay" id="hoursOverlay">
+  <div class="sheet">
+    <h2>Hours</h2>
+    <input id="hoursInput" type="number" inputmode="decimal" step="any" min="0">
+    <button class="btn" id="hoursSave">Save</button>
+    <button class="btn gray" id="hoursCancel">Cancel</button>
+  </div>
+</div>
+
+<nav id="tabbar">
+  <button data-tab="home" class="active"><span class="ic">🪵</span>Home</button>
+  <button data-tab="maintenance"><span class="ic">🛠️</span>Maintenance</button>
+  <button data-tab="finance"><span class="ic">💵</span>Finance</button>
+</nav>
+
+<script>
+const KEY='chainsaw-tracking-v1';
+let S={ hours:0, hoursEdited:'', chains:[], receipts:[], beforeAfter:'', accessories:'' };
+try { const x=JSON.parse(localStorage.getItem(KEY)); if(x) S=Object.assign(S,x); } catch(e){}
+
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(S));
+  document.getElementById('saveTag').textContent='💾 Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+function fmtDate(iso){ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function money(n){ return '$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function render(){
+  document.getElementById('hoursBig').textContent=S.hours;
+  document.getElementById('hoursEdited').textContent=S.hoursEdited?('last edited '+S.hoursEdited):'';
+  document.getElementById('chainBig').textContent=S.chains.length;
+
+  const ml=document.getElementById('maintList');
+  ml.innerHTML = S.chains.length ? '' : '<div class="empty">No maintenance entries yet.</div>';
+  [...S.chains].reverse().forEach((c,ri)=>{
+    const i=S.chains.length-1-ri;
+    const d=document.createElement('div'); d.className='row';
+    d.innerHTML='<div><div class="main">Chain '+(i+1)+'</div><div class="meta">'+fmtDate(c.date)+' · at '+c.hoursAtChange+' hrs</div></div>';
+    const b=document.createElement('button'); b.className='del'; b.textContent='✕';
+    b.onclick=()=>{ S.chains.splice(i,1); save(); render(); };
+    d.appendChild(b); ml.appendChild(d);
+  });
+
+  const fl=document.getElementById('finList');
+  fl.innerHTML = S.receipts.length ? '' : '<div class="empty">No receipts yet.</div>';
+  let tot=0;
+  [...S.receipts].reverse().forEach((r,ri)=>{
+    const i=S.receipts.length-1-ri; tot+=Number(r.cost)||0;
+    const d=document.createElement('div'); d.className='row';
+    d.innerHTML='<div><div class="main">'+r.item+' — '+money(Number(r.cost)||0)+'</div><div class="meta">'+r.location+' · '+fmtDate(r.date)+'</div></div>';
+    const b=document.createElement('button'); b.className='del'; b.textContent='✕';
+    b.onclick=()=>{ S.receipts.splice(i,1); save(); render(); };
+    d.appendChild(b); fl.appendChild(d);
+  });
+  document.getElementById('finTotal').textContent = S.receipts.length ? ('Total: '+money(tot)) : '';
+}
+
+// tabs
+document.querySelectorAll('#tabbar button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#tabbar button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('main section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  };
+});
+
+// hours tile
+const ov=document.getElementById('hoursOverlay'), hi=document.getElementById('hoursInput');
+document.getElementById('hoursCard').onclick=()=>{ hi.value=S.hours; ov.classList.add('open'); hi.focus(); };
+document.getElementById('hoursCancel').onclick=()=>ov.classList.remove('open');
+ov.onclick=e=>{ if(e.target===ov) ov.classList.remove('open'); };
+document.getElementById('hoursSave').onclick=()=>{
+  const v=parseFloat(hi.value);
+  if(!isNaN(v)&&v>=0){ S.hours=v; S.hoursEdited=fmtDate(new Date().toISOString()).replace(/, \d{4}$/,''); save(); render(); }
+  ov.classList.remove('open');
+};
+
+// chain tile: binary add, logs to maintenance
+document.getElementById('chainCard').onclick=()=>{
+  S.chains.push({ date:new Date().toISOString(), hoursAtChange:S.hours });
+  save(); render();
+};
+
+// more caret
+const mc=document.getElementById('moreCaret'), mb=document.getElementById('moreBody');
+mc.onclick=()=>{ mc.classList.toggle('open'); mb.classList.toggle('open'); };
+document.getElementById('beforeAfter').value=S.beforeAfter;
+document.getElementById('accessories').value=S.accessories;
+document.getElementById('beforeAfter').oninput=e=>{ S.beforeAfter=e.target.value; save(); };
+document.getElementById('accessories').oninput=e=>{ S.accessories=e.target.value; save(); };
+
+// finance
+document.getElementById('rAdd').onclick=()=>{
+  const item=document.getElementById('rItem').value.trim();
+  const cost=document.getElementById('rCost').value.trim();
+  const loc=document.getElementById('rLoc').value.trim();
+  if(!item&&!cost) return;
+  S.receipts.push({ item:item||'Receipt', cost:parseFloat(cost)||0, location:loc, date:new Date().toISOString() });
+  document.getElementById('rItem').value=''; document.getElementById('rCost').value=''; document.getElementById('rLoc').value='';
+  save(); render();
+};
+
+render();
+</script>
+</body>
+</html>
