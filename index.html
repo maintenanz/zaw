@@ -52,6 +52,15 @@
   .caret-btn.open .ch { transform:rotate(90deg); }
   .caret-body { display:none; }
   .caret-body.open { display:block; }
+
+  .faq-q { display:flex; align-items:center; justify-content:space-between; width:100%;
+         background:#241e15; border:1px solid #352c1e; border-radius:12px; padding:12px 14px;
+         margin:0 0 8px; color:#f0e8db; font-size:14px; font-weight:600; cursor:pointer; text-align:left; }
+  .faq-q .ch { color:#9a8b74; transition:transform .15s; flex:none; margin-left:8px; }
+  .faq-q.open .ch { transform:rotate(90deg); }
+  .faq-a { display:none; color:#c9bda9; font-size:14px; line-height:1.5; padding:2px 6px 14px; white-space:pre-line; }
+  .faq-a.open { display:block; }
+  .faq-a b { color:#f0e8db; }
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
          align-items:flex-end; z-index:20; }
   .overlay.open { display:flex; }
@@ -97,6 +106,37 @@
         <div class="field"><textarea id="beforeAfter" placeholder="Notes..."></textarea></div>
         <div class="sect">Accessories</div>
         <div class="field"><textarea id="accessories" placeholder="Notes..."></textarea></div>
+      </div>
+
+      <button class="caret-btn" id="faqCaret"><span>FAQ</span><span class="ch">›</span></button>
+      <div class="caret-body" id="faqBody">
+        <button class="faq-q"><span>What is the full MS 271 maintenance schedule?</span><span class="ch">›</span></button>
+        <div class="faq-a"><b>Every use, before starting:</b>
+Look the saw over for damage or leaks. Test the throttle trigger, lockout, choke, and stop switch. Test the chain brake (the kickback brake - this one matters most). Check chain sharpness and tension (again at every refuel). Check the bar oiler is oiling the chain. Check idle: the chain must NOT spin at idle. Check the anti-vibe mounts and chain catcher.
+<b>Every use, after:</b>
+Clean the saw and the air intake on the fan housing.
+<b>10 hours:</b>
+File burrs off the bar rails (deburr). Check the chain sprocket for wear. Clean the air intake.
+<b>25 hours:</b>
+Check/clean the fuel filter in the tank. Clean the fuel tank and bar oil tank. Clean the cylinder fins (engine cooling).
+<b>100 hours:</b>
+Replace the spark plug.
+<b>End of season:</b>
+Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace the sprocket if worn. Spark arresting screen in the muffler - dealer check/clean. Get the chains sharpened.</div>
+
+        <button class="faq-q"><span>Where are the chain sprocket and air intake, and how do I do the 25-hr and 100-hr tasks?</span><span class="ch">›</span></button>
+        <div class="faq-a"><b>Chain sprocket:</b> the toothed wheel that drives the chain, on the right side of the saw behind the cover the two bar nuts are on. Pull the hand guard toward the front handle until it clicks (brake off), unscrew the two bar nuts, cover off, chain and bar off - the sprocket sits on the crankshaft. Replace it when the wear grooves run deeper than 0.02 in (0.5 mm); rule of thumb is a new sprocket every 2 chains. The MS 271 takes a 7-tooth .325" spur sprocket.
+<b>Air intake:</b> the vent slots in the fan housing - the pull-start housing on the left side of the saw. Saw off, brush or blow the slots clear of chips and dust.
+<b>25 hours - fuel filter:</b> a small weighted felt filter on the fuel line inside the tank. Drain the fuel into a proper can, fish the line out through the fill neck with a bent wire, pull the old filter off, push a new one on. About a $5 part - replace, don't clean.
+<b>25 hours - fuel + oil tanks:</b> drain, swish a splash of fresh fuel (or clean bar oil) around, drain again. Do it outside, away from anything that can spark, and dispose of old fuel properly.
+<b>25 hours - cylinder fins:</b> master control lever to stop (0), loosen the screws, lift the top cover off. Brush or blow dust and chips out of the fin stack. No water, no pressure washer.
+<b>100 hours - spark plug</b> (same top cover): boot off, brush dirt away from around the plug first so none falls in the cylinder, unscrew with the scrench through the grommet hole. New plug: Bosch WSR 6 F or NGK BPMR 7 A, gap 0.020 in. Thread it in by hand first so it can't cross-thread, then snug it down. Boot on firmly, cover back on. Use a resistor-type plug with a solid, non-threaded terminal - the wrong plug can arc and ignite fuel fumes.</div>
+
+        <button class="faq-q"><span>At 50 hours, what is actually critical? Do I need the fuel filter on ethanol-free gas?</span><span class="ch">›</span></button>
+        <div class="faq-a"><b>Actually critical</b> (safety, free, 30 seconds): test the chain brake before each use - snap the hand guard forward, the chain must stop instantly. Idle check: the chain must not spin at idle. Chain tension and sharpness.
+<b>Worth doing once now</b> (cheap insurance): sprocket wear check - 50 hrs is right where grooves start, and a worn sprocket quietly eats chains. Bar flip + deburr. Cylinder fins blow-out.
+<b>Skip for now:</b> the spark plug is not due until 100 hrs. A tired plug shows up as hard starting first, so you will get warning.
+<b>Fuel filter:</b> ethanol-free 91 + HP Ultra stops varnish, but the filter's real job is catching physical junk - sawdust and dirt that fall in during fills. Good gas doesn't stop that. Not required monthly: replace it once a year, and if the saw ever bogs or starves under load, the filter is the first suspect.</div>
       </div>
     </div>
   </section>
@@ -202,6 +242,13 @@ document.getElementById('chainCard').onclick=()=>{
   S.chains.push({ date:new Date().toISOString(), hoursAtChange:S.hours });
   save(); render();
 };
+
+
+const fc=document.getElementById('faqCaret'), fb=document.getElementById('faqBody');
+fc.onclick=()=>{ fc.classList.toggle('open'); fb.classList.toggle('open'); };
+document.querySelectorAll('.faq-q').forEach(q=>{
+  q.onclick=()=>{ q.classList.toggle('open'); q.nextElementSibling.classList.toggle('open'); };
+});
 
 // more caret
 const mc=document.getElementById('moreCaret'), mb=document.getElementById('moreBody');
