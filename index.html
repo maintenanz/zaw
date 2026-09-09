@@ -96,7 +96,7 @@
       <div class="card" id="chainCard">
         <div class="big" id="chainBig">0</div>
         <div class="label">Chain</div>
-        <div class="note">Add new chain</div>
+        <div class="note">Tap to manage</div>
       </div>
     </div>
     <div class="wrap">
@@ -178,6 +178,15 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
     <input id="hoursInput" type="number" inputmode="decimal" step="any" min="0">
     <button class="btn" id="hoursSave">Save</button>
     <button class="btn gray" id="hoursCancel">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="chainOverlay">
+  <div class="sheet">
+    <h2>Chains</h2>
+    <div id="chainSheetList" style="margin-bottom:10px"></div>
+    <button class="btn" id="chainAdd">Add new chain</button>
+    <button class="btn gray" id="chainClose">Done</button>
   </div>
 </div>
 
@@ -333,10 +342,25 @@ document.getElementById('hoursSave').onclick=()=>{
   ov.classList.remove('open');
 };
 
-// chain tile: binary add, logs to maintenance
-document.getElementById('chainCard').onclick=()=>{
+// chain tile: opens manager sheet - add or remove chains
+const cov=document.getElementById('chainOverlay'), csl=document.getElementById('chainSheetList');
+function renderChainSheet(){
+  csl.innerHTML = S.chains.length ? '' : '<div class="empty" style="padding:6px 0 12px">No chains yet.</div>';
+  [...S.chains].reverse().forEach((c,ri)=>{
+    const i=S.chains.length-1-ri;
+    const d=document.createElement('div'); d.className='row';
+    d.innerHTML='<div><div class="main">Chain '+(i+1)+'</div><div class="meta">'+fmtDate(c.date)+' · at '+c.hoursAtChange+' hrs</div></div>';
+    const b=document.createElement('button'); b.className='del'; b.textContent='\u2715';
+    b.onclick=()=>{ S.chains.splice(i,1); save(); render(); renderChainSheet(); };
+    d.appendChild(b); csl.appendChild(d);
+  });
+}
+document.getElementById('chainCard').onclick=()=>{ renderChainSheet(); cov.classList.add('open'); };
+document.getElementById('chainClose').onclick=()=>cov.classList.remove('open');
+cov.onclick=e=>{ if(e.target===cov) cov.classList.remove('open'); };
+document.getElementById('chainAdd').onclick=()=>{
   S.chains.push({ date:new Date().toISOString(), hoursAtChange:S.hours });
-  save(); render();
+  save(); render(); renderChainSheet();
 };
 
 
