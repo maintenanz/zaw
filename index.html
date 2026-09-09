@@ -225,8 +225,43 @@ let S={ hours:0, hoursEdited:'', chains:[], receipts:[], beforeAfter:'', accesso
 try { const x=JSON.parse(localStorage.getItem(KEY)); if(x) S=Object.assign(S,x); } catch(e){}
 if(!Array.isArray(S.rawDays)) S.rawDays=JSON.parse(JSON.stringify(RAW_SEED));
 
+// --- cloud sync (Supabase, last-write-wins by server timestamp) ---
+const SB_URL='https://bcuahzcvfdhnftwmlvro.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjdWFoemN2ZmRobmZ0d21sdnJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTIzNzIsImV4cCI6MjEwMzg4ODM3Mn0.6rksBqxsn51ARofrxt48p7QaBMngU2VGzrc9UXxcUTc';
+const SYNC_APP='zaw';
+let _syncTimer=null;
+function _sbH(x){ return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}, x||{}); }
+function _syncClean(){ const c=Object.assign({},S); delete c._remoteTs; delete c._dirty; return c; }
+function _syncStamp(msg){ const t=document.getElementById('saveTag'); if(t) t.textContent=msg+' '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function syncPull(){
+  fetch(SB_URL+'/rest/v1/app_sync?app=eq.'+SYNC_APP+'&select=data,updated_at',{headers:_sbH()})
+   .then(r=>r.json()).then(rows=>{
+    const rec=Array.isArray(rows)?rows[0]:null;
+    if(rec && rec.data && Object.keys(rec.data).length && Date.parse(rec.updated_at||0) > (S._remoteTs||0)){
+      S=Object.assign({}, rec.data, {_remoteTs:Date.parse(rec.updated_at)});
+      localStorage.setItem(KEY, JSON.stringify(S));
+      render();
+      _syncStamp('\u2601\ufe0f Synced');
+    } else {
+      syncPush();
+    }
+  }).catch(()=>{});
+}
+function syncPush(){
+  fetch(SB_URL+'/rest/v1/app_sync',{method:'POST',headers:_sbH({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({app:SYNC_APP,data:_syncClean()})})
+   .then(r=>r.json()).then(rows=>{
+     const rec=Array.isArray(rows)?rows[0]:null;
+     S._dirty=false; if(rec&&rec.updated_at) S._remoteTs=Date.parse(rec.updated_at);
+     localStorage.setItem(KEY, JSON.stringify(S));
+     _syncStamp('\u2601\ufe0f Synced');
+   })
+   .catch(()=>{ _syncStamp('\u26a0\ufe0f Offline - saved on this device'); });
+}
+function syncQueue(){ S._dirty=true; clearTimeout(_syncTimer); _syncTimer=setTimeout(syncPush, 800); }
+
 function save(){
   localStorage.setItem(KEY, JSON.stringify(S));
+  syncQueue();
   document.getElementById('saveTag').textContent='💾 Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
 function fmtDate(iso){ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
@@ -357,6 +392,7 @@ document.getElementById('rAdd').onclick=()=>{
 };
 
 render();
+syncPull();
 </script>
 </body>
 </html>
