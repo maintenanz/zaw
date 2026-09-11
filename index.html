@@ -54,10 +54,11 @@
   .caret-body.open { display:block; }
   .btn.small { width:auto; padding:8px 16px; font-size:13px; margin-top:0; }
   .histrow { position:relative; overflow:hidden; padding:0!important; }
-  .histrow .trashtab { position:absolute; right:0; top:0; bottom:0; width:76px; border:0; border-radius:0; background:#e23b3b; color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .histrow .swipeactions { position:absolute; right:0; top:0; bottom:0; width:152px; display:flex; }
+  .histrow .swipeactions button { width:76px; border:0; border-radius:0; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+  .histrow .swipeactions .swipeedit { background:#71685b; }
+  .histrow .swipeactions .swipedelete { background:#e23b3b; }
   .histrow .slide { position:relative; flex:1 1 auto; min-width:0; background:#241e15; border-radius:inherit; padding:12px 14px; touch-action:pan-y; -webkit-touch-callout:none; transition:transform .15s ease; }
-  .histrow .ractions { display:none; gap:8px; margin-top:8px; }
-  .histrow .ractions.open { display:flex; }
 
   .faq-q { display:flex; align-items:center; justify-content:space-between; width:100%;
          background:#241e15; border:1px solid #352c1e; border-radius:12px; padding:12px 14px;
@@ -306,61 +307,43 @@ function save(){
 function fmtDate(iso){ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function money(n){ return '$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
-// swipe-to-delete / hold-to-edit rows (same interaction as the coop supplies history rows)
+// static rows; swipe left to reveal edit/delete actions (same interaction as coop supplies history)
 function closeHistRows(except){
   document.querySelectorAll('.histrow.swiped').forEach(r=>{ if(r===except)return; r.classList.remove('swiped'); const s=r.querySelector('.slide'); if(s)s.style.transform=''; });
-  document.querySelectorAll('.ractions.open').forEach(a=>{ if(except&&except.contains(a))return; a.classList.remove('open'); });
 }
 function makeHistRow(o){
   const row=document.createElement('div'); row.className='row histrow';
-  const tab=document.createElement('button'); tab.className='trashtab'; tab.title='Delete'; tab.textContent='\uD83D\uDDD1';
-  tab.onclick=e=>{ e.stopPropagation(); o.onDelete(); };
+  const actions=document.createElement('div'); actions.className='swipeactions';
+  const eb=document.createElement('button'); eb.className='swipeedit'; eb.textContent='Edit';
+  eb.onclick=e=>{ e.stopPropagation(); closeHistRows(); o.onEdit(); };
+  const db=document.createElement('button'); db.className='swipedelete'; db.textContent='Delete';
+  db.onclick=e=>{ e.stopPropagation(); o.onDelete(); };
+  actions.appendChild(eb); actions.appendChild(db);
   const slide=document.createElement('div'); slide.className='slide';
   const line=document.createElement('div'); line.innerHTML=o.mainHTML;
   slide.appendChild(line);
-  const ra=document.createElement('div'); ra.className='ractions';
-  const eb=document.createElement('button'); eb.className='btn small gray'; eb.textContent='Edit';
-  eb.onclick=e=>{ e.stopPropagation(); ra.classList.remove('open'); o.onEdit(); };
-  const db=document.createElement('button'); db.className='btn small gray'; db.textContent='Delete';
-  db.onclick=e=>{ e.stopPropagation(); o.onDelete(); };
-  ra.appendChild(eb); ra.appendChild(db);
-  slide.appendChild(ra);
-  row.appendChild(tab); row.appendChild(slide);
-  let g=null, holdT=null;
+  row.appendChild(actions); row.appendChild(slide);
+  let g=null;
   slide.addEventListener('pointerdown',e=>{
     if(e.target.closest('button,input,a,select,textarea'))return;
     closeHistRows(row);
-    g={x0:e.clientX,y0:e.clientY,base:row.classList.contains('swiped')?-76:0,dx:0,swiping:false};
-    clearTimeout(holdT);
-    holdT=setTimeout(()=>{
-      holdT=null;
-      if(g&&!g.swiping&&Math.abs(g.dx)<10){
-        const was=ra.classList.contains('open');
-        document.querySelectorAll('.ractions.open').forEach(x=>x.classList.remove('open'));
-        if(!was)ra.classList.add('open');
-        if(navigator.vibrate)navigator.vibrate(10);
-        g=null;
-      }
-    },700);
+    g={x0:e.clientX,y0:e.clientY,base:row.classList.contains('swiped')?-152:0,dx:0,swiping:false};
   });
   slide.addEventListener('pointermove',e=>{
     if(!g)return;
     const dx=e.clientX-g.x0, dy=e.clientY-g.y0; g.dx=dx;
-    if(Math.abs(dx)>10){ if(holdT){clearTimeout(holdT);holdT=null;} if(!g.swiping&&Math.abs(dx)>Math.abs(dy)*1.1)g.swiping=true; }
-    if(g.swiping){ const t=Math.max(-76,Math.min(0,g.base+dx)); slide.style.transition='none'; slide.style.transform='translateX('+t+'px)'; }
+    if(Math.abs(dx)>10&&!g.swiping&&Math.abs(dx)>Math.abs(dy)*1.1)g.swiping=true;
+    if(g.swiping){ const t=Math.max(-152,Math.min(0,g.base+dx)); slide.style.transition='none'; slide.style.transform='translateX('+t+'px)'; }
   });
-  const up=e=>{
-    if(holdT){clearTimeout(holdT);holdT=null;}
+  const up=()=>{
     if(!g)return;
     const gg=g; g=null;
     if(gg.swiping){
-      const t=Math.max(-76,Math.min(0,gg.base+gg.dx));
-      const open=t<-38;
+      const t=Math.max(-152,Math.min(0,gg.base+gg.dx));
+      const open=t<-76;
       slide.style.transition='';
-      slide.style.transform=open?'translateX(-76px)':'';
+      slide.style.transform=open?'translateX(-152px)':'';
       row.classList.toggle('swiped',open);
-    } else if(o.onTap && Math.abs(gg.dx)<10 && !e.target.closest('button,input,a,select,textarea')){
-      o.onTap();
     }
   };
   slide.addEventListener('pointerup',up);
@@ -403,8 +386,7 @@ function render(){
     const row=makeHistRow({
       mainHTML:'<div class="main">'+d.date+' · '+(Number(d.hours)||0)+' hrs</div><div class="meta">'+d.text+'</div>',
       onEdit:()=>openRawSheet(i),
-      onDelete:()=>{ S.rawDays.splice(i,1); save(); render(); },
-      onTap:()=>openRawSheet(i)
+      onDelete:()=>{ S.rawDays.splice(i,1); save(); render(); }
     });
     row.style.margin='0 0 8px';
     rl.appendChild(row);
