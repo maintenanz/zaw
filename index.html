@@ -99,6 +99,7 @@
         <div class="big" id="hoursBig">0</div>
         <div class="label">Hours</div>
         <div class="subnote" id="hoursEdited"></div>
+        <div class="subnote" id="hoursMismatch" style="color:#e07a2f"></div>
       </div>
       <div class="card" id="chainCard">
         <div class="big" id="chainBig">0</div>
@@ -306,6 +307,11 @@ function save(){
 }
 function fmtDate(iso){ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function money(n){ return '$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function round2(x){ return Math.round((x+Number.EPSILON)*100)/100; }
+const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function daysSum(){ return round2(S.rawDays.reduce((a,d)=>a+(Number(d.hours)||0),0)); }
+function dayMonth(d){ const m=parseInt(String(d.date||'').split('/')[0],10); return (m>=1&&m<=12)?m:null; }
+function bumpTile(delta){ S.hours=round2((Number(S.hours)||0)+delta); }
 
 // static rows; swipe left to reveal edit/delete actions (same interaction as coop supplies history)
 function closeHistRows(except){
@@ -353,8 +359,11 @@ function makeHistRow(o){
 }
 
 function render(){
-  document.getElementById('hoursBig').textContent=S.hours;
+  const dsum=daysSum();
+  const mismatch = round2(Number(S.hours)||0)!==dsum;
+  document.getElementById('hoursBig').innerHTML = mismatch ? (S.hours+' <span style="color:#e23b3b">\u2757</span>') : S.hours;
   document.getElementById('hoursEdited').textContent=S.hoursEdited?('last edited '+S.hoursEdited):'';
+  document.getElementById('hoursMismatch').textContent = mismatch ? ('Detail adds to '+dsum+' hrs - check below') : '';
   document.getElementById('chainBig').textContent=S.chains.length;
 
   const ml=document.getElementById('maintList');
@@ -382,16 +391,31 @@ function render(){
 
   const rl=document.getElementById('rawList');
   rl.innerHTML='';
+  const groups=new Map();
   S.rawDays.forEach((d,i)=>{
-    const row=makeHistRow({
-      mainHTML:'<div class="main">'+d.date+' · '+(Number(d.hours)||0)+' hrs</div><div class="meta">'+d.text+'</div>',
-      onEdit:()=>openRawSheet(i),
-      onDelete:()=>{ S.rawDays.splice(i,1); save(); render(); }
-    });
-    row.style.margin='0 0 8px';
-    rl.appendChild(row);
+    const m=dayMonth(d);
+    const pi=m==null?null:Math.floor((m-1)/2);
+    const key=pi==null?'other':pi;
+    if(!groups.has(key)) groups.set(key,{label:pi==null?'Other':MNAMES[pi*2]+'/'+MNAMES[pi*2+1],items:[],sub:0});
+    const g=groups.get(key); g.items.push({d:d,i:i}); g.sub=round2(g.sub+(Number(d.hours)||0));
   });
-  document.getElementById('rawTotal').textContent='Total: '+S.hours+' hrs across '+S.rawDays.length+' days';
+  [...groups.keys()].sort((a,b)=>(a==='other'?99:a)-(b==='other'?99:b)).forEach(k=>{
+    const g=groups.get(k);
+    const head=document.createElement('div');
+    head.className='sect'; head.style.padding='10px 0 4px';
+    head.textContent=g.label+' — '+g.sub+' hrs';
+    rl.appendChild(head);
+    g.items.forEach(it=>{
+      const row=makeHistRow({
+        mainHTML:'<div class="main">'+it.d.date+' · '+(Number(it.d.hours)||0)+' hrs</div><div class="meta">'+it.d.text+'</div>',
+        onEdit:()=>openRawSheet(it.i),
+        onDelete:()=>{ const before=daysSum(); S.rawDays.splice(it.i,1); bumpTile(daysSum()-before); save(); render(); }
+      });
+      row.style.margin='0 0 8px';
+      rl.appendChild(row);
+    });
+  });
+  document.getElementById('rawTotal').textContent='Total: '+dsum+' hrs across '+S.rawDays.length+' days';
 
   document.getElementById('finTotal').textContent = S.receipts.length ? ('Total: '+money(tot)) : '';
 }
@@ -467,7 +491,9 @@ document.getElementById('rawSave').onclick=()=>{
   const hours=parseFloat(document.getElementById('rawHours').value)||0;
   if(!date&&!text) { rov.classList.remove('open'); return; }
   const row={ date:date||'—', text, hours };
+  const before=daysSum();
   if(rawIdx<0) S.rawDays.push(row); else S.rawDays[rawIdx]=row;
+  bumpTile(daysSum()-before);
   save(); render(); rov.classList.remove('open');
 };
 
