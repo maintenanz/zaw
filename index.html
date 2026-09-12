@@ -99,7 +99,6 @@
         <div class="big" id="hoursBig">0</div>
         <div class="label">Hours</div>
         <div class="subnote" id="hoursEdited"></div>
-        <div class="subnote" id="hoursMismatch" style="color:#e07a2f"></div>
       </div>
       <div class="card" id="chainCard">
         <div class="big" id="chainBig">0</div>
@@ -107,12 +106,14 @@
         <div class="note">Tap to manage</div>
       </div>
     </div>
+    <div class="wrap" style="padding-top:0">
+      <button class="btn gray" id="rawAdd" style="margin-top:0">Add day</button>
+    </div>
     <div class="wrap">
       <button class="caret-btn" id="rawCaret"><span>Detail</span><span class="ch">›</span></button>
       <div class="caret-body" id="rawBody">
         <div class="total" id="rawTotal" style="padding:4px 0 8px"></div>
         <div id="rawList"></div>
-        <button class="btn gray" id="rawAdd" style="margin-top:2px">Add day</button>
       </div>
       <button class="caret-btn" id="moreCaret"><span>More</span><span class="ch">›</span></button>
       <div class="caret-body" id="moreBody">
@@ -211,7 +212,7 @@ Replace the fuel filter. Flip the guide bar, deburr, replace if worn. Replace th
     <button class="btn" id="rawSave">Save</button>
     <button class="btn gray" id="rawCancel">Cancel</button>
   </div>
-
+</div>
 
 <div class="overlay" id="chainEditOverlay">
   <div class="sheet">
@@ -363,7 +364,6 @@ function render(){
   const mismatch = round2(Number(S.hours)||0)!==dsum;
   document.getElementById('hoursBig').innerHTML = mismatch ? (S.hours+' <span style="color:#e23b3b">\u2757</span>') : S.hours;
   document.getElementById('hoursEdited').textContent=S.hoursEdited?('last edited '+S.hoursEdited):'';
-  document.getElementById('hoursMismatch').textContent = mismatch ? ('Detail adds to '+dsum+' hrs - check below') : '';
   document.getElementById('chainBig').textContent=S.chains.length;
 
   const ml=document.getElementById('maintList');
@@ -399,8 +399,11 @@ function render(){
     if(!groups.has(key)) groups.set(key,{label:pi==null?'Other':MNAMES[pi*2]+'/'+MNAMES[pi*2+1],items:[],sub:0});
     const g=groups.get(key); g.items.push({d:d,i:i}); g.sub=round2(g.sub+(Number(d.hours)||0));
   });
-  [...groups.keys()].sort((a,b)=>(a==='other'?99:a)-(b==='other'?99:b)).forEach(k=>{
+  const curPi=Math.floor(new Date().getMonth()/2);
+  const dayKey=d=>{ const p=String(d.date||'').split('/'); const m=parseInt(p[0],10), dd=parseInt(p[1],10); return (m>=1&&m<=12&&dd>=1&&dd<=31)?m*100+dd:-1; };
+  [...groups.keys()].sort((a,b)=>(b==='other'?-1:b)-(a==='other'?-1:a)).forEach(k=>{
     const g=groups.get(k);
+    g.items.sort((x,y)=> k===curPi ? dayKey(y.d)-dayKey(x.d) : dayKey(x.d)-dayKey(y.d));
     const head=document.createElement('div');
     head.className='sect'; head.style.padding='10px 0 4px';
     head.textContent=g.label+' — '+g.sub+' hrs';
