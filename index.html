@@ -312,7 +312,10 @@ function round2(x){ return Math.round((x+Number.EPSILON)*100)/100; }
 const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function daysSum(){ return round2(S.rawDays.reduce((a,d)=>a+(Number(d.hours)||0),0)); }
 function dayMonth(d){ const m=parseInt(String(d.date||'').split('/')[0],10); return (m>=1&&m<=12)?m:null; }
-function bumpTile(delta){ S.hours=round2((Number(S.hours)||0)+delta); }
+function bumpTile(delta){
+  S.hours=round2((Number(S.hours)||0)+delta);
+  S.hoursEdited=fmtDate(new Date().toISOString()).replace(/, \d{4}$/,'');
+}
 
 // static rows; swipe left to reveal edit/delete actions (same interaction as coop supplies history)
 function closeHistRows(except){
