@@ -121,6 +121,11 @@
         <div class="field"><textarea id="beforeAfter" placeholder="Notes..."></textarea></div>
         <div class="sect">Accessories</div>
         <div class="field"><textarea id="accessories" placeholder="Notes..."></textarea></div>
+        <div class="sect">Backup</div>
+        <button class="btn gray" id="exportData">Export data</button>
+        <button class="btn gray" id="importData">Import data</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <div class="subnote" id="backupStatus" style="margin:8px 2px 2px"></div>
       </div>
 
       <button class="caret-btn" id="faqCaret"><span>FAQ</span><span class="ch">›</span></button>
@@ -579,6 +584,39 @@ document.getElementById('beforeAfter').value=S.beforeAfter;
 document.getElementById('accessories').value=S.accessories;
 document.getElementById('beforeAfter').oninput=e=>{ S.beforeAfter=e.target.value; save(); };
 document.getElementById('accessories').oninput=e=>{ S.accessories=e.target.value; save(); };
+
+function exportData(){
+  const payload=localStorage.getItem(KEY)||JSON.stringify(S);
+  const blob=new Blob([payload],{type:'application/json'});
+  const name='zaw-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  const file=new File([blob],name,{type:'application/json'});
+  const status=document.getElementById('backupStatus');
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({title:'Zaw data backup',files:[file]}).then(()=>status.textContent='Backup exported').catch(e=>{ if(e.name!=='AbortError') status.textContent='Export failed - try again'; });
+  } else {
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); status.textContent='Backup downloaded';
+  }
+}
+function validBackup(x){
+  return x&&typeof x==='object'&&Number.isFinite(Number(x.hours))&&Array.isArray(x.rawDays)&&Array.isArray(x.chains)&&Array.isArray(x.receipts);
+}
+document.getElementById('exportData').onclick=exportData;
+document.getElementById('importData').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=async e=>{
+  const status=document.getElementById('backupStatus'), file=e.target.files&&e.target.files[0];
+  if(!file) return;
+  try{
+    const incoming=JSON.parse(await file.text());
+    if(!validBackup(incoming)) throw new Error('invalid');
+    const count=incoming.rawDays.length, hours=Number(incoming.hours)||0;
+    if(!confirm('Restore '+count+' logged days and '+hours+' hours from '+file.name+'? This replaces the current WC data.')){ e.target.value=''; return; }
+    S=Object.assign({hours:0,hoursEdited:'',chains:[],receipts:[],beforeAfter:'',accessories:'',rawDays:[]},incoming,{_dirty:true});
+    localStorage.setItem(KEY,JSON.stringify(S)); render(); syncPush(); status.textContent='Backup restored';
+  }catch(err){ status.textContent='That file is not a valid WC backup'; }
+  e.target.value='';
+};
+
+
 
 // finance
 document.getElementById('rAdd').onclick=()=>{
