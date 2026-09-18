@@ -273,21 +273,44 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const SYNC_APP='zaw';
 let _syncTimer=null;
 function _sbH(x){ return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}, x||{}); }
-function _syncClean(){ const c=Object.assign({},S); delete c._remoteTs; delete c._dirty; return c; }
+function _syncClean(x){ const c=Object.assign({},x||S); delete c._remoteTs; delete c._dirty; return c; }
 function _syncStamp(msg){ const t=document.getElementById('saveTag'); if(t) t.textContent=msg+' '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function _sameRows(a,b){ return JSON.stringify(a||[])===JSON.stringify(b||[]); }
+function _isStarterState(x){
+  if(!x) return true;
+  return Number(x.hours||0)===0 && !x.hoursEdited && !(x.chains||[]).length &&
+    !(x.receipts||[]).length && !x.beforeAfter && !x.accessories && _sameRows(x.rawDays,RAW_SEED);
+}
+function _mergeUnique(remote,local,key){
+  const out=[], seen=new Map();
+  [...(remote||[]),...(local||[])].forEach(row=>{ const k=key(row); if(seen.has(k)) out[seen.get(k)]=row; else { seen.set(k,out.length); out.push(row); } });
+  return out;
+}
+function _mergeState(remote,local,preferLocal){
+  const winner=preferLocal?local:remote, other=preferLocal?remote:local, out=Object.assign({},other,winner);
+  out.rawDays=_mergeUnique(preferLocal?remote.rawDays:local.rawDays,preferLocal?local.rawDays:remote.rawDays,r=>(r.date||'')||('text:'+String(r.text||'')));
+  out.chains=_mergeUnique(preferLocal?remote.chains:local.chains,preferLocal?local.chains:remote.chains,r=>(r.date||'')+'|'+(r.hoursAtChange||''));
+  out.receipts=_mergeUnique(preferLocal?remote.receipts:local.receipts,preferLocal?local.receipts:remote.receipts,r=>(r.date||'')+'|'+(r.item||'')+'|'+(r.cost||''));
+  if(!winner.beforeAfter && other.beforeAfter) out.beforeAfter=other.beforeAfter;
+  if(!winner.accessories && other.accessories) out.accessories=other.accessories;
+  if(!winner.hoursEdited && other.hoursEdited) out.hoursEdited=other.hoursEdited;
+  return out;
+}
 function syncPull(){
   fetch(SB_URL+'/rest/v1/app_sync?app=eq.'+SYNC_APP+'&select=data,updated_at',{headers:_sbH()})
    .then(r=>r.json()).then(rows=>{
-    const rec=Array.isArray(rows)?rows[0]:null;
-    if(rec && rec.data && Object.keys(rec.data).length && Date.parse(rec.updated_at||0) > (S._remoteTs||0)){
-      S=Object.assign({}, rec.data, {_remoteTs:Date.parse(rec.updated_at)});
-      localStorage.setItem(KEY, JSON.stringify(S));
-      render();
-      _syncStamp('\u2601\ufe0f Synced');
-    } else {
-      syncPush();
-    }
-  }).catch(()=>{});
+    const rec=Array.isArray(rows)?rows[0]:null, remote=rec&&rec.data&&Object.keys(rec.data).length?rec.data:null;
+    const remoteTs=Date.parse((rec&&rec.updated_at)||0)||0, local=_syncClean(S);
+    const localStarter=_isStarterState(local), remoteStarter=_isStarterState(remote);
+    if(!remote){ if(!localStarter) syncPush(); else _syncStamp('\u{1F4BE} Local only'); return; }
+    if(localStarter && !remoteStarter){ S=Object.assign({},remote,{_remoteTs:remoteTs,_dirty:false}); localStorage.setItem(KEY,JSON.stringify(S)); render(); _syncStamp('\u2601\ufe0f Synced'); return; }
+    if(!localStarter && remoteStarter){ S=Object.assign({},local,{_remoteTs:remoteTs,_dirty:true}); syncPush(); return; }
+    if(localStarter && remoteStarter){ S=Object.assign({},remote,{_remoteTs:remoteTs,_dirty:false}); localStorage.setItem(KEY,JSON.stringify(S)); render(); _syncStamp('\u2601\ufe0f Synced'); return; }
+    const preferLocal=S._dirty===true || !S._remoteTs || S._remoteTs>=remoteTs;
+    const merged=_mergeState(remote,local,preferLocal);
+    S=Object.assign({},merged,{_remoteTs:remoteTs,_dirty:preferLocal}); localStorage.setItem(KEY,JSON.stringify(S)); render();
+    if(preferLocal || JSON.stringify(_syncClean(S))!==JSON.stringify(remote)) syncPush(); else _syncStamp('\u2601\ufe0f Synced');
+  }).catch(()=>{ _syncStamp('\u26a0\ufe0f Offline - local copy safe'); });
 }
 function syncPush(){
   fetch(SB_URL+'/rest/v1/app_sync',{method:'POST',headers:_sbH({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}),body:JSON.stringify({app:SYNC_APP,data:_syncClean()})})
@@ -570,6 +593,7 @@ document.getElementById('rAdd').onclick=()=>{
 
 render();
 syncPull();
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
 </script>
 </body>
 </html>
